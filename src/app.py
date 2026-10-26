@@ -2,6 +2,8 @@ from pathlib import Path
 
 import pandas as pd
 from flask import Flask, jsonify, render_template, request
+import json
+from flask import Flask, jsonify
 
 BASE_DIR = Path(__file__).resolve().parent
 RESULTS_DIR = BASE_DIR / "results"
@@ -107,6 +109,22 @@ def recommendations(customer_id):
 @app.errorhandler(404)
 def not_found(e):
     return jsonify(error="Not found"), 404
+
+@app.route("/evaluation")
+def evaluation():
+    result_file = (
+        Path(__file__).resolve().parent
+        / "results"
+        / "recommendation_evaluation.json"
+    )
+
+    if not result_file.exists():
+        return jsonify({"error": "Evaluation results not found"}), 404
+
+    with open(result_file, "r", encoding="utf-8") as file:
+        results = json.load(file)
+
+    return jsonify(results)
 
 
 if __name__ == "__main__":

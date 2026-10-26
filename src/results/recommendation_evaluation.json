@@ -1,0 +1,13 @@
+{
+  "customers_evaluated": 4247,
+  "products": 3664,
+  "seed": 42,
+  "item_based_cosine": {
+    "hit_rate@5": 0.0499,
+    "hit_rate@10": 0.0673
+  },
+  "popularity_baseline": {
+    "hit_rate@5": 0.0259,
+    "hit_rate@10": 0.0391
+  }
+}

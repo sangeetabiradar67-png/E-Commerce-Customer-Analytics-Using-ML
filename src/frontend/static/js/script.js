@@ -6,9 +6,13 @@ document.addEventListener("DOMContentLoaded", function () {
     const loadButton = document.getElementById("loadStats");
     const chartElement = document.getElementById("purchaseResults");
 
-    // Load dashboard statistics
+    // ==========================================
+    // 1. LOAD DASHBOARD STATISTICS
+    // ==========================================
     async function loadAnalytics() {
-        statusElement.textContent = "Loading analytics...";
+        if (statusElement) {
+            statusElement.textContent = "Loading analytics...";
+        }
 
         try {
             const response = await fetch("/stats");
@@ -19,23 +23,39 @@ document.addEventListener("DOMContentLoaded", function () {
 
             const data = await response.json();
 
-            customersElement.textContent = data.total_customers;
-            productsElement.textContent = data.total_products;
+            if (customersElement) {
+                customersElement.textContent = data.total_customers;
+            }
 
-            statusElement.textContent = "Analytics loaded successfully!";
+            if (productsElement) {
+                productsElement.textContent = data.total_products;
+            }
 
-            // Load customer purchase analysis
+            if (statusElement) {
+                statusElement.textContent = "Analytics loaded successfully!";
+            }
+
             await loadCustomerChart();
 
         } catch (error) {
             console.error("Analytics error:", error);
-            statusElement.textContent =
-                "Unable to load analytics. Please check the backend.";
+
+            if (statusElement) {
+                statusElement.textContent =
+                    "Unable to load analytics. Please check the backend.";
+            }
         }
     }
 
-    // Load customer purchase analysis from Flask
+    // ==========================================
+    // 2. CUSTOMER PURCHASE ANALYSIS
+    // ==========================================
     async function loadCustomerChart() {
+        if (!chartElement) {
+            console.warn('Element "purchaseResults" was not found.');
+            return;
+        }
+
         try {
             const response = await fetch("/customer-analysis");
 
@@ -45,14 +65,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
             const data = await response.json();
 
-            if (!chartElement) {
-                console.warn(
-                    'Element with id "customerChart" was not found.'
-                );
-                return;
-            }
-
-            // Display the first 10 customers as a simple text chart
             const customers = data.customers || [];
             const orders = data.total_orders || [];
 
@@ -87,20 +99,59 @@ document.addEventListener("DOMContentLoaded", function () {
         } catch (error) {
             console.error("Customer chart error:", error);
 
-            if (chartElement) {
-                chartElement.textContent =
-                    "Unable to display customer purchase analysis.";
-            }
+            chartElement.textContent =
+                "Unable to display customer purchase analysis.";
         }
     }
 
-    // Connect the Load Analytics button
+    // ==========================================
+    // 3. RECOMMENDATION EVALUATION CHART
+    // ==========================================
+    async function loadEvaluation() {
+    try {
+        const response = await fetch("/evaluation");
+        if (!response.ok) {
+            throw new Error("Failed to load evaluation");
+        }
+
+        const data = await response.json();
+
+        console.log("Evaluation data:", data);
+
+        const model5 = data.item_based_cosine.hit_rate_at_5 * 100;
+        const base5 = data.popularity_baseline.hit_rate_at_5 * 100;
+        const model10 = data.item_based_cosine.hit_rate_at_10 * 100;
+        const base10 = data.popularity_baseline.hit_rate_at_10 * 100;
+
+        updateBar("chart-model-5", model5);
+        updateBar("chart-base-5", base5);
+        updateBar("chart-model-10", model10);
+        updateBar("chart-base-10", base10);
+
+    } catch (error) {
+        console.error("Evaluation error:", error);
+    }
+}
+
+function updateBar(id, value) {
+    const bar = document.getElementById(id);
+
+    if (bar) {
+        bar.style.width = value + "%";
+        bar.textContent = value.toFixed(2) + "%";
+    }
+}
+
+    // ==========================================
+    // 4. LOAD ALL DATA WHEN DASHBOARD OPENS
+    // ==========================================
     if (loadButton) {
-        loadButton.addEventListener("click", loadAnalytics);
-    } else {
-        console.error('Button with id "loadStats" was not found.');
+        loadButton.addEventListener("click", function () {
+            loadAnalytics();
+            loadEvaluationChart();
+        });
     }
 
-    // Load dashboard statistics automatically on page open
     loadAnalytics();
+    loadEvaluationChart();
 });

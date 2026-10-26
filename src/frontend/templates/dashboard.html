@@ -112,6 +112,73 @@ input[type=search],input[type=text],select{font:inherit;padding:8px 10px;border:
   </div>
 </main>
 
+
+<!-- Model Performance Comparison Chart -->
+<section style="margin: 24px 0; padding: 24px; background: #ffffff; border-radius: 14px; box-shadow: 0 3px 12px rgba(0,0,0,0.08);">
+    <h2 style="color: #243b53;">Model Performance Comparison</h2>
+    <p style="color: #627d98;">Hit Rate comparison (%)</p>
+
+    <div style="margin: 24px 0;">
+        <h3>Hit Rate @5</h3>
+        <div style="margin-bottom: 8px;">Our recommendation model</div>
+        <div style="background: #edf2f7; border-radius: 6px;">
+            <div id="chart-model-5"
+                 style="width: 0%; background: #2563eb; color: white; padding: 5px 0; text-align: center; border-radius: 6px; transition: width 0.5s;">
+                0%
+            </div>
+        </div>
+
+        <div style="margin: 12px 0 8px;">Popularity baseline</div>
+        <div style="background: #edf2f7; border-radius: 6px;">
+            <div id="chart-base-5"
+                 style="width: 0%; background: #64748b; color: white; padding: 5px 0; text-align: center; border-radius: 6px;">
+                0%
+            </div>
+        </div>
+    </div>
+
+    <div style="margin: 24px 0;">
+        <h3>Hit Rate @10</h3>
+        <div style="margin-bottom: 8px;">Our recommendation model</div>
+        <div style="background: #edf2f7; border-radius: 6px;">
+            <div id="chart-model-10"
+                 style="width: 0%; background: #2563eb; color: white; padding: 5px 0; text-align: center; border-radius: 6px;">
+                0%
+            </div>
+        </div>
+
+        <div style="margin: 12px 0 8px;">Popularity baseline</div>
+        <div style="background: #edf2f7; border-radius: 6px;">
+            <div id="chart-base-10"
+                 style="width: 0%; background: #64748b; color: white; padding: 5px 0; text-align: center; border-radius: 6px;">
+                0%
+            </div>
+        </div>
+    </div>
+</section>
+
+
+<section id="evaluation-chart" style="padding: 24px; margin: 24px 0; background: white; border-radius: 12px;">
+    <h2>Recommendation Model Performance</h2>
+    <p>Blue = Item-based recommendation model; Grey = Popularity baseline.</p>
+
+    <h3>Hit Rate @5</h3>
+    <p>Recommendation model</p>
+    <div style="background: #edf2f7; border-radius: 6px;">
+        <div id="chart-model-5"
+             style="width: 0%; background: #2563eb; color: white; padding: 5px 0; text-align: center; border-radius: 6px;">
+            0%
+        </div>
+    </div>
+
+    <p>Popularity baseline</p>
+    <div style="background: #edf2f7; border-radius: 6px;">
+        <div id="chart-base-5"
+             style="width: 0%; background: #64748b; color: white; padding: 5px 0; text-align: center; border-radius: 6px;">
+            0%
+        </div>
+    </div>
+
 <script>
 (function(){
   var COLORS={"Champions":"--seg1","Loyal customers":"--seg2","Recent customers":"--seg6","Needs attention":"--seg3","At risk":"--seg4","Lost":"--seg5"};
