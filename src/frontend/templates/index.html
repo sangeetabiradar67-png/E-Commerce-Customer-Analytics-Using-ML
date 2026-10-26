@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer Insights – Online Retail Analytics</title>
+<style>
+:root{
+  --ink:#1d2433; --muted:#667085; --paper:#f6f7f4; --panel:#ffffff; --line:#dfe3da;
+  --accent:#0f6e6e; --accent-soft:#d8ecea; --warn:#b4531f;
+  --seg1:#0f6e6e; --seg2:#3f9a8f; --seg3:#d9a441; --seg4:#b4531f; --seg5:#8b94a5; --seg6:#5b6fa8;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){--ink:#e8ebf1;--muted:#9aa3b5;--paper:#12161f;--panel:#1a202c;--line:#2b3446;--accent:#4fc1b6;--accent-soft:#1e3a3a;--warn:#e08a55}
+}
+:root[data-theme="dark"]{--ink:#e8ebf1;--muted:#9aa3b5;--paper:#12161f;--panel:#1a202c;--line:#2b3446;--accent:#4fc1b6;--accent-soft:#1e3a3a;--warn:#e08a55}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:15px/1.55 "Source Sans 3","Segoe UI",system-ui,sans-serif}
+h1,h2,h3{font-family:"Fraunces",Georgia,serif;font-weight:600;margin:0;letter-spacing:-.01em}
+header{padding:28px clamp(16px,4vw,48px) 12px;display:flex;flex-wrap:wrap;gap:16px;align-items:end;justify-content:space-between}
+header h1{font-size:clamp(24px,3.4vw,36px)}
+header p{margin:4px 0 0;color:var(--muted);max-width:60ch}
+main{padding:8px clamp(16px,4vw,48px) 48px;display:grid;gap:20px}
+button,.btn{font:inherit;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 14px;border-radius:6px;cursor:pointer}
+button.primary,.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button:focus-visible,input:focus-visible,select:focus-visible,label:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.drop{border:1.5px dashed var(--line);background:var(--panel);border-radius:10px;padding:22px;display:grid;gap:10px}
+.drop.over{border-color:var(--accent);background:var(--accent-soft)}
+.drop small{color:var(--muted)}
+nav.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+nav.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;padding:10px 14px;color:var(--muted)}
+nav.tabs button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent);font-weight:600}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.stat b{display:block;font:600 24px "Fraunces",Georgia,serif}
+.stat span{color:var(--muted);font-size:13px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px}
+.grid2{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:20px}
+@media(max-width:860px){.grid2{grid-template-columns:1fr}}
+.seg-row{display:grid;grid-template-columns:130px 1fr 60px;gap:10px;align-items:center;margin:8px 0;cursor:pointer;font-size:14px}
+.seg-row .track{background:var(--paper);height:16px;border-radius:3px;overflow:hidden}
+.seg-row .fill{height:100%}
+.seg-row.active{font-weight:600}
+.seg-row span:last-child{text-align:right;color:var(--muted)}
+.scroll{overflow-x:auto;max-height:480px;overflow-y:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
+th{position:sticky;top:0;background:var(--panel);cursor:pointer;color:var(--muted);font-weight:600}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+input[type=search],input[type=text],select{font:inherit;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink)}
+.pill{display:inline-block;padding:1px 9px;border-radius:99px;font-size:12px;color:#fff}
+.empty{color:var(--muted);padding:24px 0;text-align:center}
+.msg{color:var(--warn);min-height:1.4em}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Customer insights</h1>
+    <p>Explore RFM scores, customer segments and product recommendations from your Python analysis.</p>
+  </div>
+  <div class="bar">
+    <button id="demo">Load sample data</button>
+    <button id="theme" aria-label="Toggle dark mode">Toggle theme</button>
+  </div>
+</header>
+
+<main>
+  <section class="drop" id="drop">
+    <div class="bar">
+      <label class="btn primary">Choose rfm.csv<input id="rfmFile" type="file" accept=".csv" hidden></label>
+      <label class="btn">Choose recommendations.csv (optional)<input id="recFile" type="file" accept=".csv" hidden></label>
+    </div>
+    <small>Drop files here or choose them. rfm.csv needs CustomerID, Recency, Frequency, Monetary (a Segment column is optional). recommendations.csv needs CustomerID, StockCode, Description, Score. Files stay in your browser.</small>
+    <div class="msg" id="msg" role="status"></div>
+  </section>
+
+  <div id="app" hidden>
+    <div class="stats" id="stats"></div>
+    <nav class="tabs" role="tablist" style="margin-top:20px">
+      <button role="tab" aria-selected="true" data-tab="seg">Segments</button>
+      <button role="tab" aria-selected="false" data-tab="rec">Recommendations</button>
+    </nav>
+
+    <section id="tab-seg" style="margin-top:20px" class="grid2">
+      <div class="panel">
+        <h2 style="font-size:20px;margin-bottom:6px">Customers by segment</h2>
+        <small style="color:var(--muted)">Select a segment to filter the table.</small>
+        <div id="segBars" style="margin-top:12px"></div>
+      </div>
+      <div class="panel">
+        <div class="bar" style="margin-bottom:12px">
+          <input type="search" id="q" placeholder="Search by customer ID" aria-label="Search by customer ID">
+          <button id="clearSeg">Show all segments</button>
+          <button id="export">Download filtered CSV</button>
+        </div>
+        <div class="scroll"><table id="tbl"></table></div>
+      </div>
+    </section>
+
+    <section id="tab-rec" style="margin-top:20px" hidden class="panel">
+      <h2 style="font-size:20px;margin-bottom:12px">Recommendations for a customer</h2>
+      <div class="bar" style="margin-bottom:12px">
+        <input type="text" id="cust" placeholder="Customer ID, e.g. 17850" aria-label="Customer ID">
+        <button class="primary" id="lookup">Show recommendations</button>
+      </div>
+      <div id="recOut"></div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function(){
+  var COLORS={"Champions":"--seg1","Loyal customers":"--seg2","Recent customers":"--seg6","Needs attention":"--seg3","At risk":"--seg4","Lost":"--seg5"};
+  var state={rfm:[],rec:[],seg:null,sort:{k:"Monetary",d:-1}};
+  var $=function(id){return document.getElementById(id)};
+  var css=function(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim()};
+  var segColor=function(s){return css(COLORS[s]||"--seg5")};
+  var fmt=function(n){return Number(n).toLocaleString(undefined,{maximumFractionDigits:0})};
+
+  function parseCSV(text){
+    var rows=[],row=[],cur="",q=false,i,c;
+    text=text.replace(/^\uFEFF/,"");
+    for(i=0;i<text.length;i++){
+      c=text[i];
+      if(q){ if(c=='"'){ if(text[i+1]=='"'){cur+='"';i++} else q=false } else cur+=c }
+      else if(c=='"') q=true;
+      else if(c==","){row.push(cur);cur=""}
+      else if(c=="\n"||c=="\r"){ if(c=="\r"&&text[i+1]=="\n")i++; row.push(cur);cur="";rows.push(row);row=[] }
+      else cur+=c;
+    }
+    if(cur!==""||row.length){row.push(cur);rows.push(row)}
+    var head=rows.shift().map(function(h){return h.trim()});
+    return rows.filter(function(r){return r.length>1}).map(function(r){
+      var o={};head.forEach(function(h,j){o[h]=(r[j]||"").trim()});return o;
+    });
+  }
+
+  function quintile(values,v,reverse){
+    var s=values.slice().sort(function(a,b){return a-b});
+    var rank=s.filter(function(x){return x<=v}).length/s.length;
+    var score=Math.min(5,Math.max(1,Math.ceil(rank*5)));
+    return reverse?6-score:score;
+  }
+
+  function prepareRFM(rows){
+    var need=["CustomerID","Recency","Frequency","Monetary"];
+    if(!rows.length||need.some(function(k){return !(k in rows[0])}))
+      throw new Error("rfm.csv must include these columns: "+need.join(", ")+".");
+    rows.forEach(function(r){r.Recency=+r.Recency;r.Frequency=+r.Frequency;r.Monetary=+r.Monetary});
+    var R=rows.map(function(r){return r.Recency}),F=rows.map(function(r){return r.Frequency}),M=rows.map(function(r){return r.Monetary});
+    rows.forEach(function(r){
+      r.R=quintile(R,r.Recency,true);r.F=quintile(F,r.Frequency,false);r.M=quintile(M,r.Monetary,false);
+      if(!r.Segment){
+        r.Segment=(r.R>=4&&r.F>=4)?"Champions":(r.F>=4)?"Loyal customers":(r.R>=4)?"Recent customers":(r.R<=2&&r.F>=3)?"At risk":(r.R<=2)?"Lost":"Needs attention";
+      }
+    });
+    return rows;
+  }
+
+  function render(){
+    $("app").hidden=false;
+    var rows=state.rfm;
+    var total=rows.reduce(function(a,r){return a+r.Monetary},0);
+    var counts={};rows.forEach(function(r){counts[r.Segment]=(counts[r.Segment]||0)+1});
+    var top=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a]})[0];
+    $("stats").innerHTML=[["Customers",fmt(rows.length)],["Total revenue",fmt(total)],["Average spend",fmt(total/rows.length)],["Largest segment",top]]
+      .map(function(s){return '<div class="stat"><b>'+s[1]+'</b><span>'+s[0]+'</span></div>'}).join("");
+    var max=Math.max.apply(null,Object.values(counts));
+    $("segBars").innerHTML=Object.keys(counts).sort(function(a,b){return counts[b]-counts[a]}).map(function(s){
+      return '<div class="seg-row'+(state.seg===s?' active':'')+'" data-seg="'+s+'" tabindex="0" role="button">'+
+        '<span>'+s+'</span><span class="track"><span class="fill" style="display:block;width:'+(counts[s]/max*100)+'%;background:'+segColor(s)+'"></span></span><span>'+fmt(counts[s])+'</span></div>';
+    }).join("");
+    renderTable();
+  }
+
+  function filtered(){
+    var q=$("q").value.trim().toLowerCase();
+    return state.rfm.filter(function(r){return (!state.seg||r.Segment===state.seg)&&(!q||String(r.CustomerID).toLowerCase().indexOf(q)>-1)});
+  }
+
+  function renderTable(){
+    var cols=[["CustomerID",0],["Recency",1],["Frequency",1],["Monetary",1],["Segment",0]];
+    var rows=filtered().sort(function(a,b){
+      var k=state.sort.k,x=a[k],y=b[k];
+      return (x>y?1:x<y?-1:0)*state.sort.d;
+    });
+    if(!rows.length){$("tbl").innerHTML='<tr><td class="empty">No customers match these filters.</td></tr>';return}
+    $("tbl").innerHTML='<thead><tr>'+cols.map(function(c){
+      return '<th class="'+(c[1]?'n':'')+'" data-k="'+c[0]+'">'+c[0]+(state.sort.k===c[0]?(state.sort.d>0?' ▲':' ▼'):'')+'</th>';
+    }).join("")+'</tr></thead><tbody>'+rows.slice(0,500).map(function(r){
+      return '<tr><td>'+r.CustomerID+'</td><td class="n">'+fmt(r.Recency)+'</td><td class="n">'+fmt(r.Frequency)+'</td><td class="n">'+fmt(r.Monetary)+
+        '</td><td><span class="pill" style="background:'+segColor(r.Segment)+'">'+r.Segment+'</span></td></tr>';
+    }).join("")+'</tbody>';
+  }
+
+  function showRecs(){
+    var id=$("cust").value.trim(),out=$("recOut");
+    if(!state.rec.length){out.innerHTML='<div class="empty">Load recommendations.csv to see product suggestions.</div>';return}
+    var list=state.rec.filter(function(r){return String(r.CustomerID)===id}).sort(function(a,b){return +b.Score-+a.Score});
+    if(!id){out.innerHTML='<div class="empty">Enter a customer ID to see suggested products.</div>';return}
+    if(!list.length){out.innerHTML='<div class="empty">No recommendations found for customer '+id.replace(/[<>&]/g,"")+'.</div>';return}
+    out.innerHTML='<div class="scroll"><table><thead><tr><th>StockCode</th><th>Description</th><th class="n">Score</th></tr></thead><tbody>'+
+      list.map(function(r){return '<tr><td>'+r.StockCode+'</td><td>'+r.Description+'</td><td class="n">'+(+r.Score).toFixed(3)+'</td></tr>'}).join("")+'</tbody></table></div>';
+  }
+
+  function say(t){$("msg").textContent=t||""}
+  function readFile(file,cb){var fr=new FileReader();fr.onload=function(){cb(fr.result)};fr.readAsText(file)}
+  function loadRFM(file){readFile(file,function(t){try{state.rfm=prepareRFM(parseCSV(t));state.seg=null;say("");render()}catch(e){say(e.message)}})}
+  function loadRec(file){readFile(file,function(t){try{state.rec=parseCSV(t);say("");showRecs()}catch(e){say("Could not read recommendations.csv.")}})}
+
+  $("rfmFile").onchange=function(e){if(e.target.files[0])loadRFM(e.target.files[0])};
+  $("recFile").onchange=function(e){if(e.target.files[0])loadRec(e.target.files[0])};
+  var drop=$("drop");
+  ["dragover","dragenter"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add("over")})});
+  ["dragleave","drop"].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove("over")})});
+  drop.addEventListener("drop",function(e){
+    Array.prototype.forEach.call(e.dataTransfer.files,function(f){/rec/i.test(f.name)?loadRec(f):loadRFM(f)});
+  });
+
+  $("segBars").addEventListener("click",function(e){var r=e.target.closest("[data-seg]");if(r){state.seg=state.seg===r.dataset.seg?null:r.dataset.seg;render()}});
+  $("segBars").addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();e.target.click()}});
+  $("clearSeg").onclick=function(){state.seg=null;render()};
+  $("q").oninput=renderTable;
+  $("tbl").addEventListener("click",function(e){
+    var th=e.target.closest("th");if(!th)return;
+    var k=th.dataset.k;state.sort=state.sort.k===k?{k:k,d:-state.sort.d}:{k:k,d:-1};renderTable();
+  });
+  $("export").onclick=function(){
+    var rows=filtered(),csv="CustomerID,Recency,Frequency,Monetary,Segment\n"+rows.map(function(r){return [r.CustomerID,r.Recency,r.Frequency,r.Monetary,r.Segment].join(",")}).join("\n");
+    var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download="customers_filtered.csv";a.click();
+  };
+  document.querySelectorAll("[data-tab]").forEach(function(b){b.onclick=function(){
+    document.querySelectorAll("[data-tab]").forEach(function(x){x.setAttribute("aria-selected",x===b)});
+    $("tab-seg").hidden=b.dataset.tab!=="seg";$("tab-rec").hidden=b.dataset.tab!=="rec";
+  }});
+  $("lookup").onclick=showRecs;
+  $("cust").addEventListener("keydown",function(e){if(e.key==="Enter")showRecs()});
+  $("theme").onclick=function(){
+    var r=document.documentElement,dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme:dark)").matches;
+    r.dataset.theme=dark?"light":"dark";if(state.rfm.length)render();
+  };
+
+  $("demo").onclick=function(){
+    var rows=[];
+    for(var i=0;i<400;i++){
+      var f=1+Math.floor(Math.pow(Math.random(),2.2)*40);
+      rows.push({CustomerID:String(12346+i*7),Recency:Math.floor(Math.random()*365),Frequency:f,Monetary:Math.round(f*(40+Math.random()*180))});
+    }
+    state.rfm=prepareRFM(rows);state.seg=null;
+    var items=[["85123A","White hanging heart T-light holder"],["22423","Regency cakestand 3 tier"],["47566","Party bunting"],["84879","Assorted colour bird ornament"],["22720","Set of 3 cake tins pantry design"]];
+    state.rec=[];
+    state.rfm.slice(0,40).forEach(function(r){items.forEach(function(it){state.rec.push({CustomerID:r.CustomerID,StockCode:it[0],Description:it[1],Score:Math.random()})})});
+    $("cust").value=state.rfm[0].CustomerID;
+    say("");render();showRecs();
+  };
+})();
+</script>
+</body>
+</html>
