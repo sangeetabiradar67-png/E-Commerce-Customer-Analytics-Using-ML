@@ -43,3 +43,25 @@ print(summary)
 rfm.drop(columns="Cluster").to_csv(RFM_FILE, index=False)
 summary.to_csv("results/segment_summary.csv")
 print("Saved Segment column to", RFM_FILE)
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+SEGMENT_COLORS = {
+    "Champions": "#2E7D32",
+    "Loyal": "#1565C0",
+    "New / Promising": "#F9A825",
+    "Lost": "#C62828",
+}
+
+counts = summary["Customers"].sort_values(ascending=False)
+plt.figure(figsize=(8, 5))
+counts.plot(kind="bar", color=[SEGMENT_COLORS.get(s, "#888888") for s in counts.index])
+plt.title("Customers per Segment")
+plt.xlabel("Segment")
+plt.ylabel("Number of customers")
+plt.xticks(rotation=0)
+plt.tight_layout()
+plt.savefig("results/segment_chart.png")
+plt.close()
+print("Saved results/segment_chart.png")

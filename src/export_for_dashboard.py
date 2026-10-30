@@ -2,113 +2,94 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import StandardScaler
 
 BASE = Path(__file__).resolve().parent
-CANDIDATES = [
-    BASE.parent / "data" / "Online Retail.xlsx",   # your layout: repo/data
-    BASE / "data" / "Online Retail.xlsx",
-    BASE / "Online Retail.xlsx",
-]
-DATA_FILE = next((p for p in CANDIDATES if p.exists()), CANDIDATES[0])
+DATA_FILE = BASE.parent / "data" / "Online Retail.xlsx"
 OUT_DIR = BASE / "results"
+TOP_N = 5  # recommendations per customer
+
 OUT_DIR.mkdir(exist_ok=True)
-TOP_PRODUCTS = 1000      # limit the product catalogue used for recommendations
-RECS_PER_CUSTOMER = 5
-N_CLUSTERS = 4
 
+# ---------------------------------------------------------------
+# 1. Load and clean
+# ---------------------------------------------------------------
+print("Loading data...")
+df = pd.read_excel(DATA_FILE, engine="openpyxl")
 
-def load_clean(path):
-    df = pd.read_excel(path, engine="openpyxl")
-    df = df.dropna(subset=["CustomerID"])
-    df = df[~df["InvoiceNo"].astype(str).str.startswith("C")]   # cancellations
-    df = df[(df["Quantity"] > 0) & (df["UnitPrice"] > 0)]
-    df["CustomerID"] = df["CustomerID"].astype(int)
-    df["TotalPrice"] = df["Quantity"] * df["UnitPrice"]
-    return df
+df = df.dropna(subset=["CustomerID"])
+df = df[~df["InvoiceNo"].astype(str).str.startswith("C")]  # cancelled invoices
+df = df[df["Quantity"] > 0]
+df = df[df["UnitPrice"] > 0]
+df = df[df["Quantity"] < 50000]  # huge orders that were later cancelled
 
+df["CustomerID"] = df["CustomerID"].astype(int)
+df["StockCode"] = df["StockCode"].astype(str)
+df["InvoiceDate"] = pd.to_datetime(df["InvoiceDate"])
+df["TotalAmount"] = df["Quantity"] * df["UnitPrice"]
 
-def build_rfm(df):
-    snapshot = df["InvoiceDate"].max() + pd.Timedelta(days=1)
-    rfm = df.groupby("CustomerID").agg(
-        Recency=("InvoiceDate", lambda d: (snapshot - d.max()).days),
-        Frequency=("InvoiceNo", "nunique"),
-        Monetary=("TotalPrice", "sum"),
-    )
-    return rfm.round({"Monetary": 2})
+# ---------------------------------------------------------------
+# 2. RFM
+# ---------------------------------------------------------------
+print("Computing RFM and segments...")
+reference_date = df["InvoiceDate"].max() + pd.Timedelta(days=1)
 
+rfm = df.groupby("CustomerID").agg(
+    Recency=("InvoiceDate", lambda x: (reference_date - x.max()).days),
+    Frequency=("InvoiceNo", "nunique"),
+    Monetary=("TotalAmount", "sum"),
+).reset_index()
+rfm["Monetary"] = rfm["Monetary"].round(2)
 
-def add_segments(rfm):
-    features = np.log1p(rfm[["Recency", "Frequency", "Monetary"]])
-    scaled = StandardScaler().fit_transform(features)
-    labels = KMeans(n_clusters=N_CLUSTERS, n_init=10, random_state=42).fit_predict(scaled)
+# Temporary rule-based segment. segment_rfm.py replaces this with K-Means segments.
+rfm["Segment"] = "Unassigned"
 
-    # Name clusters by overall value: low recency + high frequency/spend is best.
-    z = pd.DataFrame(scaled, index=rfm.index, columns=["R", "F", "M"])
-    z["cluster"] = labels
-    value = z.groupby("cluster").apply(lambda g: (-g["R"] + g["F"] + g["M"]).mean())
-    names = ["Lost", "At risk", "Loyal customers", "Champions"]
-    mapping = {c: names[i] for i, c in enumerate(value.sort_values().index)}
-    rfm["Segment"] = pd.Series(labels, index=rfm.index).map(mapping)
-    return rfm
+# ---------------------------------------------------------------
+# 3. Recommendations (item-based cosine similarity)
+# ---------------------------------------------------------------
+print("Building recommendations...")
+cp = df.groupby(["CustomerID", "StockCode"])["Quantity"].sum().unstack(fill_value=0)
+customers = cp.index.to_numpy()
+products = cp.columns.to_numpy()
 
+M = cp.to_numpy(dtype=np.float32)
+sim = cosine_similarity(M.T).astype(np.float32)
 
-def build_recommendations(df):
-    top = df["StockCode"].value_counts().head(TOP_PRODUCTS).index
-    sub = df[df["StockCode"].isin(top)]
+bought = (M > 0).astype(np.float32)
+scores = bought @ sim
+scores[bought > 0] = -np.inf  # never recommend something already bought
 
-    matrix = (
-        sub.assign(bought=1)
-        .pivot_table(index="CustomerID", columns="StockCode", values="bought",
-                     aggfunc="max", fill_value=0)
-    )
-    item_sim = cosine_similarity(matrix.T.values)
-    scores = matrix.values @ item_sim
-    scores[matrix.values == 1] = -1          # never recommend what they already bought
+top_idx = np.argsort(-scores, axis=1)[:, :TOP_N]
 
-    descriptions = (
-        df.groupby("StockCode")["Description"]
-        .agg(lambda s: s.mode().iat[0] if not s.mode().empty else "")
-    )
+names = (
+    df.drop_duplicates("StockCode")
+    .set_index("StockCode")["Description"]
+    .astype(str)
+    .str.strip()
+)
 
-    rows = []
-    stock_codes = matrix.columns.to_numpy()
-    for i, customer in enumerate(matrix.index):
-        best = np.argsort(scores[i])[::-1][:RECS_PER_CUSTOMER]
-        max_score = scores[i][best[0]] or 1
-        for j in best:
-            if scores[i][j] <= 0:
-                continue
-            code = stock_codes[j]
-            rows.append({
-                "CustomerID": customer,
-                "StockCode": code,
-                "Description": str(descriptions.get(code, "")).strip().replace(",", " "),
-                "Score": round(float(scores[i][j] / max_score), 4),
-            })
-    return pd.DataFrame(rows)
+rows = []
+for i, cust in enumerate(customers):
+    for rank, j in enumerate(top_idx[i], start=1):
+        score = scores[i, j]
+        if not np.isfinite(score) or score <= 0:
+            continue
+        code = products[j]
+        rows.append({
+            "CustomerID": int(cust),
+            "StockCode": code,
+            "Description": names.get(code, "Unknown Product"),
+            "Score": round(float(score), 4),
+            "Rank": rank,
+        })
 
+rec = pd.DataFrame(rows)
 
-def main():
-    if not DATA_FILE.exists():
-        raise SystemExit(f"Could not find Online Retail.xlsx. Looked in: {[str(p) for p in CANDIDATES]}")
+# ---------------------------------------------------------------
+# 4. Save
+# ---------------------------------------------------------------
+rfm.to_csv(OUT_DIR / "rfm.csv", index=False)
+rec.to_csv(OUT_DIR / "recommendations.csv", index=False)
 
-    print("Loading data...")
-    df = load_clean(DATA_FILE)
-
-    print("Computing RFM and segments...")
-    rfm = add_segments(build_rfm(df))
-    rfm.reset_index().to_csv(OUT_DIR / "rfm.csv", index=False)
-
-    print("Building recommendations...")
-    recs = build_recommendations(df)
-    recs.to_csv(OUT_DIR / "recommendations.csv", index=False)
-
-    print(f"Done: {len(rfm)} customers, {len(recs)} recommendations.")
-    print(f"Files saved in {OUT_DIR}. Open index.html and choose rfm.csv and recommendations.csv.")
-
-
-if __name__ == "__main__":
-    main()
+print(f"Done: {len(rfm)} customers, {len(rec)} recommendations.")
+print(f"Files saved in {OUT_DIR}. Now run segment_rfm.py to add K-Means segments.")

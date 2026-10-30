@@ -5,21 +5,18 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics.pairwise import cosine_similarity
 
-from pathlib import Path
-
+BASE = Path(__file__).resolve().parent
+DATA_FILE = BASE.parent / "data" / "Online Retail.xlsx"
+OUT_FILE = BASE / "results" / "evaluation.json"
 SEED = 42
-KS = [5, 10]
+KS = (5, 10)
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DATA_FILE = PROJECT_ROOT / "data" / "online retail.xlsx"
-OUT_FILE = PROJECT_ROOT / "src" / "results" / "recommendation_evaluation.json"
-
-# 1. Load dataset
+# 1. Load and clean (same rules as customer_analytics.py)
 df = pd.read_excel(DATA_FILE, engine="openpyxl")
 df = df.dropna(subset=["CustomerID"])
 df = df[~df["InvoiceNo"].astype(str).str.startswith("C")]
 df = df[(df["Quantity"] > 0) & (df["UnitPrice"] > 0)]
-df = df[df["Quantity"] < 50000]  # drop the huge cancelled orders
+df = df[df["Quantity"] < 50000]
 df["CustomerID"] = df["CustomerID"].astype(int)
 df["StockCode"] = df["StockCode"].astype(str)
 

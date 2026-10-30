@@ -154,4 +154,14 @@ function updateBar(id, value) {
 
     loadAnalytics();
     loadEvaluationChart();
+
+    // Auto-load rfm.csv from the same folder
+fetch("rfm.csv")
+  .then(function(r){
+    if(!r.ok) throw new Error("rfm.csv not found");
+    return r.blob();
+  })
+  .then(function(b){ loadRFM(new File([b], "rfm.csv")); })
+  .catch(function(){ /* file not found: user can upload manually */ });
+
 });

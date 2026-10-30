@@ -1,6 +1,4 @@
 import matplotlib
-import os
-os.makedirs("../results", exist_ok=True)
 matplotlib.use("Agg")  # save charts to files instead of opening windows (so the script doesn't pause)
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -278,7 +276,8 @@ print(customer_quantity["Segment"].value_counts())
 segment_counts = customer_quantity["Segment"].value_counts()
 
 plt.figure(figsize=(8, 5))
-segment_counts.plot(kind="bar")
+colors = {"Low Purchase": "#C62828", "Medium Purchase": "#F9A825", "High Purchase": "#2E7D32"}
+segment_counts.plot(kind="bar", color=[colors[s] for s in segment_counts.index])
 plt.title("Customer Segmentation Based on Purchase Quantity")
 plt.xlabel("Customer Segment")
 plt.ylabel("Number of Customers")
