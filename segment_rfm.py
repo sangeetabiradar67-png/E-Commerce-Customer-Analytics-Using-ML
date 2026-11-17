@@ -1,11 +1,16 @@
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 
 RFM_FILE = "results/rfm.csv"
-K = 4  # change after looking at the silhouette scores below
+SUMMARY_FILE = "results/segment_summary.csv"
+CHART_FILE = "results/segment_chart.png"
+K = 4  # chosen for 4 easy-to-explain business segments (see silhouette scores below)
 
 rfm = pd.read_csv(RFM_FILE)
 
@@ -28,25 +33,30 @@ centers = pd.DataFrame(km.cluster_centers_, columns=["R", "F", "M"])
 centers["score"] = -centers["R"] + centers["F"] + centers["M"]
 ranked = centers["score"].sort_values(ascending=False).index.tolist()
 
+# Names go from best to worst cluster
 names = ["Champions", "Loyal", "New / Promising", "Lost"] if K == 4 else [f"Segment {i+1}" for i in range(K)]
 rfm["Segment"] = rfm["Cluster"].map({c: names[i] for i, c in enumerate(ranked)})
 
-summary = rfm.groupby("Segment").agg(
-    Customers=("CustomerID", "count"),
-    AvgRecency=("Recency", "mean"),
-    AvgFrequency=("Frequency", "mean"),
-    AvgMonetary=("Monetary", "mean"),
-    TotalRevenue=("Monetary", "sum"),
-).round(1)
+summary = (
+    rfm.groupby("Segment")
+    .agg(
+        Customers=("CustomerID", "count"),
+        AvgRecency=("Recency", "mean"),
+        AvgFrequency=("Frequency", "mean"),
+        AvgMonetary=("Monetary", "mean"),
+        TotalRevenue=("Monetary", "sum"),
+    )
+    .reindex(names)  # keep best -> worst order in the table too
+    .round(1)
+)
+summary["RevenueShare%"] = (100 * summary["TotalRevenue"] / summary["TotalRevenue"].sum()).round(1)
 print(summary)
 
 rfm.drop(columns="Cluster").to_csv(RFM_FILE, index=False)
-summary.to_csv("results/segment_summary.csv")
+summary.to_csv(SUMMARY_FILE)
 print("Saved Segment column to", RFM_FILE)
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 
+# ---------------- Chart ----------------
 SEGMENT_COLORS = {
     "Champions": "#2E7D32",
     "Loyal": "#1565C0",
@@ -54,14 +64,21 @@ SEGMENT_COLORS = {
     "Lost": "#C62828",
 }
 
-counts = summary["Customers"].sort_values(ascending=False)
-plt.figure(figsize=(8, 5))
-counts.plot(kind="bar", color=[SEGMENT_COLORS.get(s, "#888888") for s in counts.index])
-plt.title("Customers per Segment")
-plt.xlabel("Segment")
-plt.ylabel("Number of customers")
-plt.xticks(rotation=0)
+# FIX: keep best -> worst order instead of sorting by size
+counts = summary["Customers"]
+
+fig, ax = plt.subplots(figsize=(8, 5))
+ax.bar(
+    counts.index,
+    counts.values,
+    color=[SEGMENT_COLORS.get(s, "#888888") for s in counts.index],
+    width=0.5,
+)
+ax.bar_label(ax.containers[0], padding=3)  # FIX: show counts on bars
+ax.set_title("Customers per Segment (RFM + K-Means)")
+ax.set_xlabel("Segment")
+ax.set_ylabel("Number of customers")
 plt.tight_layout()
-plt.savefig("results/segment_chart.png")
+plt.savefig(CHART_FILE, dpi=150)
 plt.close()
-print("Saved results/segment_chart.png")
+print("Saved", CHART_FILE)
