@@ -6,17 +6,17 @@ Run from the src folder:
     python dashboard_app.py
 Then open http://127.0.0.1:5000
 """
-from pathlib import Path
+from pathlib import Path 
+
 
 from flask import Flask, abort, send_from_directory
 
 BASE = Path(__file__).resolve().parent
 TEMPLATES = BASE / "frontend" / "templates"
 RESULTS = BASE / "results"
-ALLOWED = {"rfm.csv", "recommendations.csv"}
+ALLOWED = {"rfm.csv"}
 
 app = Flask(__name__, static_folder=str(BASE / "frontend" / "static"))
-
 
 @app.route("/")
 def dashboard():
@@ -28,7 +28,6 @@ def results(name):
     if name not in ALLOWED:
         abort(404)
     return send_from_directory(RESULTS, name, mimetype="text/csv")
-
 
 if __name__ == "__main__":
     app.run(debug=True)

@@ -429,29 +429,6 @@ td.n, th.n {
       <p class="muted">
         Use these column names when preparing your customer CSV file.
       </p>
-
-      <div class="scroll">
-        <table>
-          <thead>
-            <tr>
-              <th>CustomerID</th>
-              <th>Recency</th>
-              <th>Frequency</th>
-              <th>Monetary</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr><td>1001</td><td>10</td><td>15</td><td>2500</td></tr>
-            <tr><td>1002</td><td>45</td><td>5</td><td>800</td></tr>
-            <tr><td>1003</td><td>5</td><td>25</td><td>4500</td></tr>
-            <tr><td>1004</td><td>90</td><td>2</td><td>300</td></tr>
-            <tr><td>1005</td><td>20</td><td>10</td><td>1500</td></tr>
-          </tbody>
-        </table>
-      </div>
-
-    </div>
   </section>
 
   <!-- Dashboard -->
@@ -462,10 +439,6 @@ td.n, th.n {
     <nav class="tabs" role="tablist" aria-label="Dashboard sections">
       <button role="tab" aria-selected="true" data-tab="seg">
         Customer Segments
-      </button>
-
-      <button role="tab" aria-selected="false" data-tab="rec">
-        Recommendations
       </button>
     </nav>
 
@@ -703,7 +676,7 @@ td.n, th.n {
       r.F = quintile(F, r.Frequency, false);
       r.M = quintile(M, r.Monetary, false);
 
-      if (!r.Segment) {
+      if (!r.Segment || /^(unassigned|unknown|none|nan)$/i.test(r.Segment)) {
         if (r.R >= 4 && r.F >= 4) {
           r.Segment = "Champions";
         } else if (r.F >= 4) {
