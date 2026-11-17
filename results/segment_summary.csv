@@ -1,0 +1,5 @@
+Segment,Customers,AvgRecency,AvgFrequency,AvgMonetary,TotalRevenue
+Champions,709,12.1,13.8,7886.5,5591503.2
+Lost,1615,183.2,1.3,350.8,566499.8
+Loyal,1180,69.1,4.1,1744.6,2058569.4
+New / Promising,833,18.4,2.1,539.2,449182.3
